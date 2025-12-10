@@ -455,7 +455,7 @@ def create_${building_type}(location, floors, style):
 
   script += `
 create_${building_type}((${location.join(", ")}), ${floors}, "${style}")
-print(f"Created ${building_type} with {${floors}} floors")
+print(f"Created ${building_type} with {floors} floors")
 `;
 
   return script;
@@ -697,7 +697,7 @@ def create_${body_part}(location, detail_level):
 
   script += `
 create_${body_part}((${location.join(", ")}), "${detail_level}")
-print(f"Created ${body_part} with ${detail_level} detail")
+print(f"Created ${body_part} with {detail_level} detail")
 `;
 
   return script;
