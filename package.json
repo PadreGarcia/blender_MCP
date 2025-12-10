@@ -1,0 +1,24 @@
+{
+  "name": "blender-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for AI-powered Blender 3D object generation",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test_comprehensive.js",
+    "test:basic": "node test.js",
+    "test:creatures": "node test_creatures.js"
+  },
+  "keywords": [
+    "blender",
+    "mcp",
+    "ai",
+    "3d-modeling"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.3"
+  }
+}
