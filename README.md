@@ -1,12 +1,13 @@
 # Blender MCP Server - AI-Powered 3D Generation
 
-An MCP (Model Context Protocol) server that connects your AI to Blender for intelligent 3D object generation. Generate geometric shapes, complex architectural structures, human body parts, and apply textures using natural language prompts.
+An MCP (Model Context Protocol) server that connects your AI to Blender for intelligent 3D object generation. Generate geometric shapes, complex architectural structures, human body parts, fantasy creatures, monsters, and apply textures using natural language prompts.
 
 ## Features
 
 - 🎨 **Geometric Shapes**: Create cubes, spheres, cylinders, cones, torus, and planes
 - 🏗️ **Architectural Structures**: Generate houses, buildings, churches, towers with customizable floors and styles
 - 👤 **Human Body Parts**: Create heads, hands, feet, arms, legs, torso, or complete human bodies
+- 🐉 **Creatures & Monsters**: Generate dragons, spiders, octopuses, aliens, monsters, serpents, birds, and fish
 - 🎭 **Textures & Materials**: Apply realistic materials like wood, metal, stone, brick, glass, plastic, fabric, and skin
 - 💬 **Natural Language Processing**: Describe what you want in plain text, and the AI generates the appropriate Blender script
 - 🔧 **Custom Scripts**: Execute custom Python scripts directly in Blender
@@ -87,7 +88,41 @@ Create human body parts with varying detail levels:
 Generate a human hand with high detail
 ```
 
-#### 4. Apply Texture
+#### 4. Generate Creature
+
+Create fantasy creatures, monsters, and animals:
+
+```javascript
+{
+  "creature_type": "dragon|spider|octopus|alien|monster|serpent|bird|fish",
+  "size": 2.0,
+  "detail_level": "low|medium|high",
+  "location": [0, 0, 0]
+}
+```
+
+**Examples:**
+```
+- "Create a dragon with wings and tail"
+- "Generate a spider with 8 legs"
+- "Make an octopus with tentacles"
+- "Build an alien with large eyes"
+- "Create a monster with horns and claws"
+- "Genera un dragón" (Spanish)
+- "Crea un monstruo con cuernos" (Spanish)
+```
+
+**Supported Creatures:**
+- **Dragon** (dragón): Body, head, neck, tail, wings, legs
+- **Spider** (araña): Body, head, 8 legs, 8 eyes
+- **Octopus** (pulpo): Head/mantle, eyes, 8 tentacles with suction cups
+- **Alien** (extraterrestre): Large head, big eyes, thin body, long arms, 3-fingered hands
+- **Monster** (monstruo): Bulky body, horns, glowing eyes, teeth, claws, muscular arms
+- **Serpent** (serpiente): Head, fangs, coiled body segments
+- **Bird** (ave): Body, head, beak, wings, tail, legs
+- **Fish** (pez): Body, head, fins, tail, mouth
+
+#### 5. Apply Texture
 
 Apply realistic materials to objects:
 
@@ -104,7 +139,7 @@ Apply realistic materials to objects:
 Apply wood texture to the house walls
 ```
 
-#### 5. Generate from Prompt
+#### 6. Generate from Prompt
 
 The most powerful feature - describe what you want in natural language:
 
@@ -122,9 +157,12 @@ The most powerful feature - describe what you want in natural language:
 - "Make a church with a tall tower"
 - "Create a complete human body"
 - "Build a 10-story modern building"
+- "Generate a dragon with large wings"
+- "Create a monster with tentacles"
+- "Un monstruo con cuernos y garras" (Spanish)
 ```
 
-#### 6. Execute Blender Script
+#### 7. Execute Blender Script
 
 Run custom Python code in Blender:
 

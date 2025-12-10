@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/index.js",
     "test": "node test_comprehensive.js",
-    "test:basic": "node test.js"
+    "test:basic": "node test.js",
+    "test:creatures": "node test_creatures.js"
   },
   "keywords": [
     "blender",

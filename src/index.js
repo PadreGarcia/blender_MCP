@@ -138,14 +138,46 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
+        name: "generate_creature",
+        description: "Generate fantasy creatures, monsters, and animals (dragon, spider, octopus, alien, etc.)",
+        inputSchema: {
+          type: "object",
+          properties: {
+            creature_type: {
+              type: "string",
+              enum: ["dragon", "spider", "octopus", "alien", "monster", "serpent", "bird", "fish"],
+              description: "Type of creature to create"
+            },
+            size: {
+              type: "number",
+              description: "Overall size scale of the creature",
+              default: 2.0
+            },
+            detail_level: {
+              type: "string",
+              enum: ["low", "medium", "high"],
+              description: "Level of detail for the model",
+              default: "medium"
+            },
+            location: {
+              type: "array",
+              items: { type: "number" },
+              description: "3D location [x, y, z]",
+              default: [0, 0, 0]
+            }
+          },
+          required: ["creature_type"]
+        }
+      },
+      {
         name: "generate_from_prompt",
-        description: "Generate 3D objects from natural language descriptions. The AI will parse the prompt and create appropriate geometry.",
+        description: "Generate 3D objects from natural language descriptions. The AI will parse the prompt and create appropriate geometry including creatures, monsters, complex structures, and designs.",
         inputSchema: {
           type: "object",
           properties: {
             prompt: {
               type: "string",
-              description: "Natural language description of what to create (e.g., 'a person with a head, two arms, two legs')"
+              description: "Natural language description of what to create (e.g., 'a person with a head, two arms, two legs', 'a dragon with wings', 'un monstruo con tentáculos')"
             },
             detail_level: {
               type: "string",
@@ -189,6 +221,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       
       case "generate_human_part":
         return await handleHumanPart(args);
+      
+      case "generate_creature":
+        return await handleCreature(args);
       
       case "apply_texture":
         return await handleTexture(args);
@@ -256,6 +291,21 @@ async function handleHumanPart(args) {
       {
         type: "text",
         text: `Generated ${body_part} with ${detail_level} detail at location [${location.join(", ")}].\n\nBlender Python Script:\n\`\`\`python\n${script}\n\`\`\``
+      }
+    ]
+  };
+}
+
+async function handleCreature(args) {
+  const { creature_type, size = 2.0, detail_level = "medium", location = [0, 0, 0] } = args;
+  
+  const script = generateCreatureScript(creature_type, size, detail_level, location);
+  
+  return {
+    content: [
+      {
+        type: "text",
+        text: `Generated ${creature_type} with ${detail_level} detail at location [${location.join(", ")}].\n\nBlender Python Script:\n\`\`\`python\n${script}\n\`\`\``
       }
     ]
   };
@@ -703,6 +753,583 @@ print(f"Created ${body_part} with {detail_level} detail")
   return script;
 }
 
+function generateCreatureScript(creature_type, size, detail_level, location) {
+  const subdivisions = { low: 1, medium: 2, high: 3 }[detail_level];
+  
+  let script = `import bpy
+import math
+
+def create_${creature_type}(location, size, detail_level):
+    """Generate a ${creature_type} with ${detail_level} detail"""
+    
+`;
+
+  if (creature_type === "dragon") {
+    script += `    # Dragon body
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.6, location=(location[0], location[1], location[2] + size * 0.8))
+    body = bpy.context.active_object
+    body.scale = (1.5, 1, 1)
+    body.name = "Dragon_Body"
+    
+    # Dragon head
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.4, location=(location[0] + size * 1.2, location[1], location[2] + size * 1))
+    head = bpy.context.active_object
+    head.scale = (1.3, 0.8, 0.9)
+    head.name = "Dragon_Head"
+    
+    # Dragon neck
+    bpy.ops.mesh.primitive_cylinder_add(radius=size * 0.25, depth=size * 0.8, location=(location[0] + size * 0.6, location[1], location[2] + size * 0.9))
+    neck = bpy.context.active_object
+    neck.rotation_euler[1] = math.radians(45)
+    neck.name = "Dragon_Neck"
+    
+    # Dragon tail
+    for i in range(5):
+        tail_pos = (location[0] - size * (0.5 + i * 0.4), location[1], location[2] + size * (0.6 - i * 0.15))
+        tail_size = size * (0.3 - i * 0.04)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=tail_size, location=tail_pos)
+        tail_seg = bpy.context.active_object
+        tail_seg.scale = (1.5, 1, 1)
+        tail_seg.name = f"Dragon_Tail_{i}"
+    
+    # Dragon wings
+    for x_side in [-1, 1]:
+        # Wing base
+        bpy.ops.mesh.primitive_cube_add(size=size * 0.4, location=(location[0], location[1] + x_side * size * 0.8, location[2] + size))
+        wing_base = bpy.context.active_object
+        wing_base.scale = (0.3, 1, 0.5)
+        wing_base.name = f"Dragon_Wing_Base_{'L' if x_side < 0 else 'R'}"
+        
+        # Wing membrane
+        bpy.ops.mesh.primitive_cube_add(size=size * 0.8, location=(location[0] - size * 0.3, location[1] + x_side * size * 1.5, location[2] + size * 1.2))
+        wing_mem = bpy.context.active_object
+        wing_mem.scale = (0.05, 1.8, 1.5)
+        wing_mem.rotation_euler[2] = math.radians(x_side * 20)
+        wing_mem.name = f"Dragon_Wing_{'L' if x_side < 0 else 'R'}"
+    
+    # Dragon legs
+    for x_side in [-0.5, 0.5]:
+        for z_offset in [0.3, -0.3]:
+            leg_pos = (location[0] + z_offset * size, location[1] + x_side * size * 0.8, location[2] + size * 0.3)
+            bpy.ops.mesh.primitive_cylinder_add(radius=size * 0.15, depth=size * 0.6, location=leg_pos)
+            leg = bpy.context.active_object
+            leg.name = f"Dragon_Leg_{x_side}_{z_offset}"
+    
+    # Apply subdivision for smoothness
+    for obj_name in ["Dragon_Body", "Dragon_Head"]:
+        obj = bpy.data.objects.get(obj_name)
+        if obj:
+            mod = obj.modifiers.new(name="Subsurf", type='SUBSURF')
+            mod.levels = ${subdivisions}
+`;
+  } else if (creature_type === "spider") {
+    script += `    # Spider body
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.4, location=(location[0], location[1], location[2] + size * 0.5))
+    body = bpy.context.active_object
+    body.scale = (0.8, 1.2, 0.7)
+    body.name = "Spider_Body"
+    
+    # Spider head
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.25, location=(location[0] + size * 0.5, location[1], location[2] + size * 0.55))
+    head = bpy.context.active_object
+    head.scale = (1.1, 0.9, 0.9)
+    head.name = "Spider_Head"
+    
+    # Spider legs (8 legs)
+    leg_angles = [0, 45, 90, 135, 180, 225, 270, 315]
+    for i, angle in enumerate(leg_angles):
+        angle_rad = math.radians(angle)
+        
+        # Upper leg segment
+        x_offset = math.cos(angle_rad) * size * 0.6
+        y_offset = math.sin(angle_rad) * size * 0.6
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.06, 
+            depth=size * 0.8,
+            location=(location[0] + x_offset * 0.5, location[1] + y_offset * 0.5, location[2] + size * 0.6)
+        )
+        upper_leg = bpy.context.active_object
+        upper_leg.rotation_euler[2] = angle_rad
+        upper_leg.rotation_euler[1] = math.radians(-30)
+        upper_leg.name = f"Spider_Leg_{i}_Upper"
+        
+        # Lower leg segment
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.04, 
+            depth=size * 0.7,
+            location=(location[0] + x_offset, location[1] + y_offset, location[2] + size * 0.2)
+        )
+        lower_leg = bpy.context.active_object
+        lower_leg.rotation_euler[2] = angle_rad
+        lower_leg.rotation_euler[1] = math.radians(-60)
+        lower_leg.name = f"Spider_Leg_{i}_Lower"
+    
+    # Spider eyes
+    for i in range(8):
+        eye_x = (i % 4 - 1.5) * size * 0.08
+        eye_z = (i // 4) * size * 0.08
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.05,
+            location=(location[0] + size * 0.65, location[1] + eye_x, location[2] + size * 0.6 + eye_z)
+        )
+        eye = bpy.context.active_object
+        eye.name = f"Spider_Eye_{i}"
+    
+    mod = body.modifiers.new(name="Subsurf", type='SUBSURF')
+    mod.levels = ${subdivisions}
+`;
+  } else if (creature_type === "octopus") {
+    script += `    # Octopus head/mantle
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.6, location=(location[0], location[1], location[2] + size))
+    head = bpy.context.active_object
+    head.scale = (1, 1, 1.3)
+    head.name = "Octopus_Head"
+    
+    # Octopus eyes
+    for x_side in [-0.3, 0.3]:
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.12,
+            location=(location[0] + size * 0.4, location[1] + x_side * size, location[2] + size * 1.1)
+        )
+        eye = bpy.context.active_object
+        eye.name = f"Octopus_Eye_{'L' if x_side < 0 else 'R'}"
+    
+    # Octopus tentacles (8 tentacles)
+    tentacle_angles = [0, 45, 90, 135, 180, 225, 270, 315]
+    for i, angle in enumerate(tentacle_angles):
+        angle_rad = math.radians(angle)
+        
+        # Create tentacle with multiple segments
+        for segment in range(6):
+            segment_size = size * (0.15 - segment * 0.02)
+            segment_length = size * 0.4
+            
+            x_base = math.cos(angle_rad) * size * (0.5 + segment * 0.3)
+            y_base = math.sin(angle_rad) * size * (0.5 + segment * 0.3)
+            z_pos = location[2] + size * 0.5 - segment * size * 0.15
+            
+            bpy.ops.mesh.primitive_cylinder_add(
+                radius=segment_size,
+                depth=segment_length,
+                location=(location[0] + x_base, location[1] + y_base, z_pos)
+            )
+            tent_seg = bpy.context.active_object
+            tent_seg.rotation_euler[2] = angle_rad
+            tent_seg.rotation_euler[1] = math.radians(-15 - segment * 5)
+            tent_seg.name = f"Octopus_Tentacle_{i}_Seg_{segment}"
+            
+            # Add suction cups
+            if segment > 0 and segment % 2 == 0:
+                for sucker in range(3):
+                    sucker_offset = (sucker - 1) * segment_length * 0.25
+                    sucker_x = x_base + math.cos(angle_rad) * sucker_offset
+                    sucker_y = y_base + math.sin(angle_rad) * sucker_offset
+                    
+                    bpy.ops.mesh.primitive_cylinder_add(
+                        radius=segment_size * 0.5,
+                        depth=segment_size * 0.3,
+                        location=(location[0] + sucker_x, location[1] + sucker_y, z_pos - segment_size)
+                    )
+                    sucker_obj = bpy.context.active_object
+                    sucker_obj.rotation_euler = tent_seg.rotation_euler
+                    sucker_obj.name = f"Octopus_Sucker_{i}_{segment}_{sucker}"
+    
+    mod = head.modifiers.new(name="Subsurf", type='SUBSURF')
+    mod.levels = ${subdivisions}
+`;
+  } else if (creature_type === "alien") {
+    script += `    # Alien head (large)
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.5, location=(location[0], location[1], location[2] + size * 1.5))
+    head = bpy.context.active_object
+    head.scale = (1.2, 0.9, 1.3)
+    head.name = "Alien_Head"
+    
+    # Alien large eyes
+    for x_side in [-0.35, 0.35]:
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.18,
+            location=(location[0] + size * 0.35, location[1] + x_side * size, location[2] + size * 1.6)
+        )
+        eye = bpy.context.active_object
+        eye.scale = (1.5, 1, 1.2)
+        eye.name = f"Alien_Eye_{'L' if x_side < 0 else 'R'}"
+    
+    # Alien thin neck
+    bpy.ops.mesh.primitive_cylinder_add(radius=size * 0.15, depth=size * 0.3, location=(location[0], location[1], location[2] + size * 1.15))
+    neck = bpy.context.active_object
+    neck.name = "Alien_Neck"
+    
+    # Alien small body
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.35, location=(location[0], location[1], location[2] + size * 0.8))
+    body = bpy.context.active_object
+    body.scale = (0.8, 0.7, 1.2)
+    body.name = "Alien_Body"
+    
+    # Alien thin long arms
+    for x_side in [-1, 1]:
+        # Upper arm
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.08,
+            depth=size * 0.8,
+            location=(location[0], location[1] + x_side * size * 0.4, location[2] + size * 0.7)
+        )
+        upper_arm = bpy.context.active_object
+        upper_arm.rotation_euler[2] = math.radians(x_side * 15)
+        upper_arm.name = f"Alien_Upper_Arm_{'L' if x_side < 0 else 'R'}"
+        
+        # Forearm
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.06,
+            depth=size * 0.9,
+            location=(location[0] - size * 0.2, location[1] + x_side * size * 0.8, location[2] + size * 0.3)
+        )
+        forearm = bpy.context.active_object
+        forearm.rotation_euler[2] = math.radians(x_side * 25)
+        forearm.name = f"Alien_Forearm_{'L' if x_side < 0 else 'R'}"
+        
+        # Three-fingered hand
+        for finger in range(3):
+            finger_angle = (finger - 1) * 30
+            bpy.ops.mesh.primitive_cylinder_add(
+                radius=size * 0.03,
+                depth=size * 0.25,
+                location=(location[0] - size * 0.4, location[1] + x_side * (size * 1.1 + finger * 0.05), location[2] + size * 0.1)
+            )
+            finger_obj = bpy.context.active_object
+            finger_obj.rotation_euler[2] = math.radians(x_side * (25 + finger_angle))
+            finger_obj.name = f"Alien_Finger_{'L' if x_side < 0 else 'R'}_{finger}"
+    
+    # Alien thin legs
+    for x_side in [-0.25, 0.25]:
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.1,
+            depth=size * 0.9,
+            location=(location[0], location[1] + x_side * size, location[2] + size * 0.2)
+        )
+        leg = bpy.context.active_object
+        leg.name = f"Alien_Leg_{'L' if x_side < 0 else 'R'}"
+    
+    mod = head.modifiers.new(name="Subsurf", type='SUBSURF')
+    mod.levels = ${subdivisions}
+`;
+  } else if (creature_type === "monster") {
+    script += `    # Monster body (bulky)
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.7, location=(location[0], location[1], location[2] + size))
+    body = bpy.context.active_object
+    body.scale = (1.3, 1, 1.5)
+    body.name = "Monster_Body"
+    
+    # Monster head
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.45, location=(location[0], location[1], location[2] + size * 1.8))
+    head = bpy.context.active_object
+    head.scale = (1.2, 0.9, 0.9)
+    head.name = "Monster_Head"
+    
+    # Monster horns
+    for x_side in [-0.35, 0.35]:
+        bpy.ops.mesh.primitive_cone_add(
+            radius1=size * 0.12,
+            radius2=0.01,
+            depth=size * 0.6,
+            location=(location[0], location[1] + x_side * size, location[2] + size * 2.3)
+        )
+        horn = bpy.context.active_object
+        horn.rotation_euler[2] = math.radians(x_side * 30)
+        horn.name = f"Monster_Horn_{'L' if x_side < 0 else 'R'}"
+    
+    # Monster eyes (glowing)
+    for x_side in [-0.25, 0.25]:
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.1,
+            location=(location[0] + size * 0.35, location[1] + x_side * size, location[2] + size * 1.9)
+        )
+        eye = bpy.context.active_object
+        eye.name = f"Monster_Eye_{'L' if x_side < 0 else 'R'}"
+    
+    # Monster mouth with teeth
+    bpy.ops.mesh.primitive_cube_add(
+        size=size * 0.3,
+        location=(location[0] + size * 0.4, location[1], location[2] + size * 1.65)
+    )
+    mouth = bpy.context.active_object
+    mouth.scale = (0.5, 1.5, 0.3)
+    mouth.name = "Monster_Mouth"
+    
+    # Teeth
+    for tooth in range(10):
+        tooth_y = (tooth - 4.5) * size * 0.08
+        bpy.ops.mesh.primitive_cone_add(
+            radius1=size * 0.04,
+            radius2=0.01,
+            depth=size * 0.15,
+            location=(location[0] + size * 0.55, location[1] + tooth_y, location[2] + size * 1.7)
+        )
+        tooth_obj = bpy.context.active_object
+        tooth_obj.rotation_euler[1] = math.radians(90)
+        tooth_obj.name = f"Monster_Tooth_{tooth}"
+    
+    # Monster muscular arms
+    for x_side in [-1, 1]:
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.25,
+            depth=size * 0.9,
+            location=(location[0], location[1] + x_side * size * 0.8, location[2] + size * 1.2)
+        )
+        arm = bpy.context.active_object
+        arm.rotation_euler[2] = math.radians(x_side * 15)
+        arm.name = f"Monster_Arm_{'L' if x_side < 0 else 'R'}"
+        
+        # Clawed hand
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.2,
+            location=(location[0] - size * 0.2, location[1] + x_side * size * 1.2, location[2] + size * 0.7)
+        )
+        hand = bpy.context.active_object
+        hand.name = f"Monster_Hand_{'L' if x_side < 0 else 'R'}"
+        
+        # Claws
+        for claw in range(3):
+            claw_angle = (claw - 1) * 25
+            bpy.ops.mesh.primitive_cone_add(
+                radius1=size * 0.06,
+                radius2=0.01,
+                depth=size * 0.35,
+                location=(location[0] - size * 0.4, location[1] + x_side * (size * 1.3 + claw * 0.08), location[2] + size * 0.65)
+            )
+            claw_obj = bpy.context.active_object
+            claw_obj.rotation_euler[2] = math.radians(x_side * (15 + claw_angle))
+            claw_obj.name = f"Monster_Claw_{'L' if x_side < 0 else 'R'}_{claw}"
+    
+    # Monster legs
+    for x_side in [-0.4, 0.4]:
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.22,
+            depth=size * 1.2,
+            location=(location[0], location[1] + x_side * size, location[2] + size * 0.3)
+        )
+        leg = bpy.context.active_object
+        leg.name = f"Monster_Leg_{'L' if x_side < 0 else 'R'}"
+    
+    mod = body.modifiers.new(name="Subsurf", type='SUBSURF')
+    mod.levels = ${subdivisions}
+`;
+  } else if (creature_type === "serpent") {
+    script += `    # Serpent head
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.35, location=(location[0], location[1], location[2] + size * 0.8))
+    head = bpy.context.active_object
+    head.scale = (1.3, 0.8, 0.9)
+    head.name = "Serpent_Head"
+    
+    # Serpent eyes
+    for x_side in [-0.25, 0.25]:
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.08,
+            location=(location[0] + size * 0.35, location[1] + x_side * size * 0.5, location[2] + size * 0.9)
+        )
+        eye = bpy.context.active_object
+        eye.name = f"Serpent_Eye_{'L' if x_side < 0 else 'R'}"
+    
+    # Serpent fangs
+    for x_side in [-0.15, 0.15]:
+        bpy.ops.mesh.primitive_cone_add(
+            radius1=size * 0.05,
+            radius2=0.01,
+            depth=size * 0.25,
+            location=(location[0] + size * 0.4, location[1] + x_side * size * 0.5, location[2] + size * 0.65)
+        )
+        fang = bpy.context.active_object
+        fang.rotation_euler[1] = math.radians(90)
+        fang.name = f"Serpent_Fang_{'L' if x_side < 0 else 'R'}"
+    
+    # Serpent body (coiled segments)
+    num_segments = 15
+    for i in range(num_segments):
+        angle = i * 0.6
+        radius_offset = size * (1.5 - i * 0.05)
+        segment_size = size * (0.3 - i * 0.015)
+        
+        x_pos = location[0] + math.cos(angle) * radius_offset - i * size * 0.1
+        y_pos = location[1] + math.sin(angle) * radius_offset
+        z_pos = location[2] + size * 0.5 - i * size * 0.08
+        
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=segment_size,
+            location=(x_pos, y_pos, z_pos)
+        )
+        segment = bpy.context.active_object
+        segment.scale = (1.5, 1, 1)
+        segment.name = f"Serpent_Body_Seg_{i}"
+    
+    mod = head.modifiers.new(name="Subsurf", type='SUBSURF')
+    mod.levels = ${subdivisions}
+`;
+  } else if (creature_type === "bird") {
+    script += `    # Bird body
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.4, location=(location[0], location[1], location[2] + size * 0.6))
+    body = bpy.context.active_object
+    body.scale = (1.2, 0.9, 1.3)
+    body.name = "Bird_Body"
+    
+    # Bird head
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.25, location=(location[0] + size * 0.4, location[1], location[2] + size * 1))
+    head = bpy.context.active_object
+    head.scale = (1.1, 0.9, 0.95)
+    head.name = "Bird_Head"
+    
+    # Bird beak
+    bpy.ops.mesh.primitive_cone_add(
+        radius1=size * 0.12,
+        radius2=0.01,
+        depth=size * 0.35,
+        location=(location[0] + size * 0.65, location[1], location[2] + size * 0.95)
+    )
+    beak = bpy.context.active_object
+    beak.rotation_euler[1] = math.radians(90)
+    beak.name = "Bird_Beak"
+    
+    # Bird eyes
+    for x_side in [-0.15, 0.15]:
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.06,
+            location=(location[0] + size * 0.48, location[1] + x_side * size, location[2] + size * 1.05)
+        )
+        eye = bpy.context.active_object
+        eye.name = f"Bird_Eye_{'L' if x_side < 0 else 'R'}"
+    
+    # Bird wings
+    for x_side in [-1, 1]:
+        # Wing base
+        bpy.ops.mesh.primitive_cube_add(
+            size=size * 0.3,
+            location=(location[0] - size * 0.1, location[1] + x_side * size * 0.5, location[2] + size * 0.8)
+        )
+        wing_base = bpy.context.active_object
+        wing_base.scale = (0.3, 1, 0.7)
+        wing_base.name = f"Bird_Wing_Base_{'L' if x_side < 0 else 'R'}"
+        
+        # Wing feathers
+        bpy.ops.mesh.primitive_cube_add(
+            size=size * 0.6,
+            location=(location[0] - size * 0.3, location[1] + x_side * size * 1.2, location[2] + size * 0.8)
+        )
+        wing_feathers = bpy.context.active_object
+        wing_feathers.scale = (0.05, 1.5, 1)
+        wing_feathers.rotation_euler[2] = math.radians(x_side * 15)
+        wing_feathers.name = f"Bird_Wing_{'L' if x_side < 0 else 'R'}"
+    
+    # Bird tail
+    bpy.ops.mesh.primitive_cube_add(
+        size=size * 0.5,
+        location=(location[0] - size * 0.6, location[1], location[2] + size * 0.5)
+    )
+    tail = bpy.context.active_object
+    tail.scale = (0.05, 0.8, 1.2)
+    tail.rotation_euler[1] = math.radians(-20)
+    tail.name = "Bird_Tail"
+    
+    # Bird legs
+    for x_side in [-0.2, 0.2]:
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=size * 0.05,
+            depth=size * 0.5,
+            location=(location[0], location[1] + x_side * size, location[2] + size * 0.15)
+        )
+        leg = bpy.context.active_object
+        leg.name = f"Bird_Leg_{'L' if x_side < 0 else 'R'}"
+        
+        # Feet
+        for toe in range(3):
+            toe_angle = (toe - 1) * 40
+            bpy.ops.mesh.primitive_cylinder_add(
+                radius=size * 0.02,
+                depth=size * 0.15,
+                location=(location[0] + size * 0.08, location[1] + x_side * size + toe * 0.05, location[2] - size * 0.1)
+            )
+            toe_obj = bpy.context.active_object
+            toe_obj.rotation_euler[2] = math.radians(toe_angle)
+            toe_obj.name = f"Bird_Toe_{'L' if x_side < 0 else 'R'}_{toe}"
+    
+    mod = body.modifiers.new(name="Subsurf", type='SUBSURF')
+    mod.levels = ${subdivisions}
+`;
+  } else if (creature_type === "fish") {
+    script += `    # Fish body
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.5, location=(location[0], location[1], location[2] + size * 0.5))
+    body = bpy.context.active_object
+    body.scale = (2, 0.8, 0.9)
+    body.name = "Fish_Body"
+    
+    # Fish head
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=size * 0.35, location=(location[0] + size * 0.8, location[1], location[2] + size * 0.5))
+    head = bpy.context.active_object
+    head.scale = (1, 0.85, 0.9)
+    head.name = "Fish_Head"
+    
+    # Fish eyes
+    for x_side in [-0.25, 0.25]:
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            radius=size * 0.08,
+            location=(location[0] + size * 1, location[1] + x_side * size, location[2] + size * 0.6)
+        )
+        eye = bpy.context.active_object
+        eye.name = f"Fish_Eye_{'L' if x_side < 0 else 'R'}"
+    
+    # Fish mouth
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=size * 0.15,
+        minor_radius=size * 0.05,
+        location=(location[0] + size * 1.1, location[1], location[2] + size * 0.45)
+    )
+    mouth = bpy.context.active_object
+    mouth.rotation_euler[0] = math.radians(90)
+    mouth.scale = (1, 0.5, 1)
+    mouth.name = "Fish_Mouth"
+    
+    # Fish dorsal fin
+    bpy.ops.mesh.primitive_cube_add(
+        size=size * 0.6,
+        location=(location[0], location[1], location[2] + size * 1.2)
+    )
+    dorsal_fin = bpy.context.active_object
+    dorsal_fin.scale = (1, 0.05, 1.2)
+    dorsal_fin.rotation_euler[0] = math.radians(10)
+    dorsal_fin.name = "Fish_Dorsal_Fin"
+    
+    # Fish pectoral fins
+    for x_side in [-1, 1]:
+        bpy.ops.mesh.primitive_cube_add(
+            size=size * 0.4,
+            location=(location[0] + size * 0.3, location[1] + x_side * size * 0.6, location[2] + size * 0.4)
+        )
+        pec_fin = bpy.context.active_object
+        pec_fin.scale = (0.05, 1.5, 0.8)
+        pec_fin.rotation_euler[2] = math.radians(x_side * 45)
+        pec_fin.name = f"Fish_Pectoral_Fin_{'L' if x_side < 0 else 'R'}"
+    
+    # Fish tail
+    bpy.ops.mesh.primitive_cube_add(
+        size=size * 0.7,
+        location=(location[0] - size * 1.1, location[1], location[2] + size * 0.5)
+    )
+    tail = bpy.context.active_object
+    tail.scale = (0.05, 1.2, 1.5)
+    tail.rotation_euler[2] = math.radians(10)
+    tail.name = "Fish_Tail"
+    
+    # Fish scales texture through subdivision
+    mod = body.modifiers.new(name="Subsurf", type='SUBSURF')
+    mod.levels = ${subdivisions}
+`;
+  }
+
+  script += `
+create_${creature_type}((${location.join(", ")}), ${size}, "${detail_level}")
+print(f"Created ${creature_type} with size {size} and {detail_level} detail")
+`;
+
+  return script;
+}
+
 function generateTextureScript(object_name, texture_type, color) {
   const textures = {
     wood: { base_color: [0.4, 0.25, 0.1, 1], roughness: 0.8, metallic: 0 },
@@ -848,6 +1475,28 @@ function analyzePrompt(prompt) {
     description += "church, ";
   }
   
+  // Analyze for creatures and monsters
+  const creatureKeywords = {
+    dragon: ["dragon", "dragón"],
+    spider: ["spider", "araña"],
+    octopus: ["octopus", "pulpo", "octopodo"],
+    alien: ["alien", "extraterrestre", "alienígena"],
+    monster: ["monster", "monstruo", "bestia", "beast"],
+    serpent: ["serpent", "snake", "serpiente", "víbora"],
+    bird: ["bird", "ave", "pájaro"],
+    fish: ["fish", "pez"]
+  };
+  
+  for (const [creatureType, keywords] of Object.entries(creatureKeywords)) {
+    if (keywords.some(keyword => lowercasePrompt.includes(keyword))) {
+      const sizeMatch = lowercasePrompt.match(/size\s+(\d+\.?\d*)/i);
+      const size = sizeMatch ? parseFloat(sizeMatch[1]) : 2.0;
+      components.push({ type: "creature", creature_type: creatureType, size, location: [0, 0, 0] });
+      description += `${creatureType}, `;
+      break; // Only one creature type per prompt to avoid conflicts
+    }
+  }
+  
   // Analyze for geometric shapes
   const shapes = ["cube", "sphere", "cylinder", "cone", "torus"];
   shapes.forEach(shape => {
@@ -884,6 +1533,10 @@ bpy.ops.object.delete()
     } else if (component.type === "building") {
       script += `# Component ${index + 1}: ${component.building_type}\n`;
       script += generateBuildingScript(component.building_type, component.floors, "modern", component.location);
+      script += "\n";
+    } else if (component.type === "creature") {
+      script += `# Component ${index + 1}: ${component.creature_type}\n`;
+      script += generateCreatureScript(component.creature_type, component.size, detail_level, component.location);
       script += "\n";
     } else if (component.type === "shape") {
       script += `# Component ${index + 1}: ${component.shape_type}\n`;
